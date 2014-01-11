@@ -92,7 +92,9 @@ function init() {
     temp_material = new THREE.MeshLambertMaterial( {color: 0xff0000} );
     squad = [];
     squad.scaling = {A:1, B:1, C:1};
-    squad.shape = {r:2, s:2, t:2};  // start as sphere
+    //squad.shape = {r:2, s:2, t:2};  // start as sphere
+    //squad.shape = {r:10, s:10, t:10};  // start as rounded cube
+    squad.shape = {r:0.6, s:0.6, t:0.6};  // my favorite
     squad.points = [];
     for (sv=-Math.PI/2,i=0;sv<=Math.PI/2;sv+=Math.PI/25,i++) { 
         squad.points[i] = []; 
@@ -111,6 +113,19 @@ function init() {
             squad.points[i][j].mesh.position.z = squad.points[i][j].z;
         }
     }
+
+textbar = document.createElement('div');
+textbar.style.position = 'absolute';
+//textbar.style.zIndex = 1;    // if you still don't see the label, try uncommenting this
+textbar.style.width = window.width-10;
+textbar.style.height = 20;
+textbar.style.backgroundColor = "black";
+textbar.style.color = "#00ff00";
+textbar.innerHTML = "hi there!";
+textbar.style.top = 10 + 'px';
+textbar.style.left = 10 + 'px';
+document.body.appendChild(textbar);
+
 }
 
 function superquadric(u,v,A,B,C,r,s,t) {
@@ -136,11 +151,25 @@ function superquadric(u,v,A,B,C,r,s,t) {
 }
 
 function superquadric_c(w,m) {
-    return Math.sign(Math.cos(w))*Math.pow(Math.abs(Math.cos(w)),m);
+    if (typeof Math.sign !== 'undefined') 
+        return Math.sign(Math.cos(w))*Math.pow(Math.abs(Math.cos(w)),m);
+    else
+        return Math_sign(Math.cos(w))*Math.pow(Math.abs(Math.cos(w)),m);
+        // why does Chrome not have Math.sign(); that seems unwise
 }
 
 function superquadric_s(w,m) {
-    return Math.sign(Math.sin(w))*Math.pow(Math.abs(Math.sin(w)),m);
+    if (typeof Math.sign !== 'undefined') 
+        return Math.sign(Math.sin(w))*Math.pow(Math.abs(Math.sin(w)),m);
+    else
+        return Math_sign(Math.sin(w))*Math.pow(Math.abs(Math.sin(w)),m);  
+        // why does Chrome not have Math.sign(); that seems unwise
+}
+
+function Math_sign(a) {
+    if (a < 0) return -1;
+    else if (a > 0) return 1;
+    else return 0;
 }
 
 //////////////////////////////////////////////////
@@ -155,31 +184,39 @@ function animate() {
     // http://learningwebgl.com/blog/?p=3189
     requestAnimationFrame( animate );
 
-    if ( keyboard.pressed("a") )
-        squad.scaling.A += 0.01;
-    else if ( keyboard.pressed("shift+A") )
-        squad.scaling.A -= 0.01;
-    if ( keyboard.pressed("b") )
-        squad.scaling.B += 0.01;
-    else if ( keyboard.pressed("shift+B") )
-        squad.scaling.B -= 0.01;
-    if ( keyboard.pressed("c") )
-        squad.scaling.C += 0.01;
-    else if ( keyboard.pressed("shift+C") )
-        squad.scaling.C -= 0.01;
+    textbar.innerHTML = 
+        " A = " + squad.scaling.A.toFixed(2) + 
+        " B = " + squad.scaling.B.toFixed(2) + 
+        " C = " + squad.scaling.C.toFixed(2) + 
+        " r = " + squad.shape.r.toFixed(2) + 
+        " s = " + squad.shape.s.toFixed(2) + 
+        " t = " + squad.shape.t.toFixed(2) ; 
 
-    if ( keyboard.pressed("r") )
-        squad.shape.r += 0.01;
-    else if ( keyboard.pressed("shift+R") )
+    if ( keyboard.pressed("shift+A") )
+        squad.scaling.A -= 0.01;
+    else if ( keyboard.pressed("a") )
+        squad.scaling.A += 0.01;
+    if ( keyboard.pressed("shift+B") )
+        squad.scaling.B -= 0.01;
+    else if ( keyboard.pressed("b") )
+        squad.scaling.B += 0.01;
+    if ( keyboard.pressed("shift+C") )
+        squad.scaling.C -= 0.01;
+    else if ( keyboard.pressed("c") )
+        squad.scaling.C += 0.01;
+
+    if ( keyboard.pressed("shift+R") )
         squad.shape.r -= 0.01;
-    if ( keyboard.pressed("s") )
-        squad.shape.s += 0.01;
-    else if ( keyboard.pressed("shift+S") )
+    else if ( keyboard.pressed("r") )
+        squad.shape.r += 0.01;
+    if ( keyboard.pressed("shift+S") )
         squad.shape.s -= 0.01;
-    if ( keyboard.pressed("t") )
-        squad.shape.t += 0.01;
-    else if ( keyboard.pressed("shift+T") )
+    else if ( keyboard.pressed("s") )
+        squad.shape.s += 0.01;
+    if ( keyboard.pressed("shift+T") )
         squad.shape.t -= 0.01;
+    else if ( keyboard.pressed("t") )
+        squad.shape.t += 0.01;
 
 
     for (i=0;i<squad.points.length;i++) { 
