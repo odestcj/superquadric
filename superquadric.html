@@ -1,0 +1,207 @@
+<!--
+
+     super quick superquadric 
+     Implementation of Barr's superquadric surface point visualization
+     in HTML5/JavaScript and threejs
+     
+     @author odestcj / https://github.com/odestcj
+
+     Forgive my coding style.  I am still a typedef struct kind of guy
+     with a noticeable disregard for proper scoping
+
+-->
+
+<html>
+
+<body>
+
+<!-- //////////////////////////////////////////////////
+     /////     JAVASCRIPT INCLUDES
+     ////////////////////////////////////////////////// -->
+
+
+<!-- threejs - https://github.com/mrdoob/three.js/ -->
+<script src="js/three.min.js"></script>
+
+<!-- threejs camera controls helpers -->
+<script src="js/OrbitControls.js"></script>
+
+<!-- threejs keyboard input helper -->
+<script src="js/THREEx.KeyboardState.js"></script>
+
+<script>
+
+//////////////////////////////////////////////////
+/////     MAIN FUNCTION CALLS
+//////////////////////////////////////////////////
+
+// initialize threejs scene, user input, and robot kinematics
+init();
+
+// main animation loop maintained by threejs 
+animate();
+
+
+
+//////////////////////////////////////////////////
+/////     INITIALIZATION FUNCTION DEFINITONS
+//////////////////////////////////////////////////
+
+function init() {
+
+    // instantiate threejs scene graph
+    scene = new THREE.Scene();
+
+    // instantiate threejs camera and set its position in the world
+    camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 1, 10000 );
+    camera.position.y = 1;
+    camera.position.z = 4;
+
+    var light1 = new THREE.PointLight( 0xffffff, 0.3, 1000 ); 
+    light1.position.set( 50, 50, 50 ); 
+    scene.add( light1 );
+
+    var light2 = new THREE.PointLight( 0xffffff, 0.3, 1000 ); 
+    light2.position.set( 50, 50, -50 ); 
+    scene.add( light2 );
+
+    var light3 = new THREE.PointLight( 0xffffff, 0.3, 1000 ); 
+    light3.position.set( -50, 50, -50 ); 
+    scene.add( light3 );
+
+    var light4 = new THREE.PointLight( 0xffffff, 0.3, 1000 ); 
+    light4.position.set( -50, 50, 50 ); 
+    scene.add( light4 );
+
+    // instantiate threejs renderer and its dimensions
+    renderer = new THREE.WebGLRenderer();
+    renderer.setSize( window.innerWidth, window.innerHeight );
+
+    // attach threejs renderer to DOM
+    document.body.appendChild( renderer.domElement );
+
+    // instantiate threejs camera controls
+    camera_controls = new THREE.OrbitControls( camera );
+    camera_controls.addEventListener( 'change', renderer );
+
+    // instantiate threejs keyboard controls, for continuous interactive controls
+    keyboard = new THREEx.KeyboardState();
+
+            
+    temp_geom = new THREE.CubeGeometry(0.1, 0.1, 0.1);
+    temp_material = new THREE.MeshLambertMaterial( {color: 0xff0000} );
+    squad = [];
+    squad.scaling = {A:1, B:1, C:1};
+    squad.shape = {r:2, s:2, t:2};  // start as sphere
+    squad.points = [];
+    for (sv=-Math.PI/2,i=0;sv<=Math.PI/2;sv+=Math.PI/25,i++) { 
+        squad.points[i] = []; 
+        for (su=-Math.PI,j=0;su<=Math.PI;su+=Math.PI/50,j++) { 
+            squad.points[i][j] = {v:sv, u:su}; 
+            temp_point = superquadric(su,sv,
+                squad.scaling.A,squad.scaling.B,squad.scaling.C,
+                squad.shape.r,squad.shape.s,squad.shape.t);
+            squad.points[i][j].x = temp_point.x;
+            squad.points[i][j].y = temp_point.y;
+            squad.points[i][j].z = temp_point.z;
+            squad.points[i][j].mesh = new THREE.Mesh(temp_geom, temp_material);
+            scene.add(squad.points[i][j].mesh);
+            squad.points[i][j].mesh.position.x = squad.points[i][j].x;
+            squad.points[i][j].mesh.position.y = squad.points[i][j].y;
+            squad.points[i][j].mesh.position.z = squad.points[i][j].z;
+        }
+    }
+}
+
+function superquadric(u,v,A,B,C,r,s,t) {
+
+    // parametric equations for superquadric, from http://en.wikipedia.org/wiki/Superquadrics 
+    //   with respect to surface lat-lon params (u,v)
+    //   having scaling values along shape x,y,z axes (A,B,C)
+    //   and shape definition exponents along shape x,y,z axes (r,s,t)
+    //
+    //   x(u,v) = A*c(v,2/r)*c(u,2/r)
+    //   y(u,v) = B*c(v,2/s)*s(u,2/s)
+    //   z(u,v) = C*s(v,2/t)
+    //
+    // aux functions 
+    //   c(w,m) = sgn(cos(w))*abs(cos(w))^m
+    //   s(w,m) = sgn(sin(w))*abs(sin(w))^m
+
+    var point = [];
+    point.x = A*superquadric_c(v,2/r)*superquadric_c(u,2/r);
+    point.y = B*superquadric_c(v,2/s)*superquadric_s(u,2/s);
+    point.z = C*superquadric_s(v,2/t);
+    return point;
+}
+
+function superquadric_c(w,m) {
+    return Math.sign(Math.cos(w))*Math.pow(Math.abs(Math.cos(w)),m);
+}
+
+function superquadric_s(w,m) {
+    return Math.sign(Math.sin(w))*Math.pow(Math.abs(Math.sin(w)),m);
+}
+
+//////////////////////////////////////////////////
+/////     ANIMATION AND INTERACTION LOOP
+//////////////////////////////////////////////////
+
+function animate() {
+
+    // note: three.js includes requestAnimationFrame shim
+    // alternative to using setInterval for updating in-browser drawing
+    // this effectively request that the animate function be called again for next draw
+    // http://learningwebgl.com/blog/?p=3189
+    requestAnimationFrame( animate );
+
+    if ( keyboard.pressed("a") )
+        squad.scaling.A += 0.01;
+    else if ( keyboard.pressed("shift+A") )
+        squad.scaling.A -= 0.01;
+    if ( keyboard.pressed("b") )
+        squad.scaling.B += 0.01;
+    else if ( keyboard.pressed("shift+B") )
+        squad.scaling.B -= 0.01;
+    if ( keyboard.pressed("c") )
+        squad.scaling.C += 0.01;
+    else if ( keyboard.pressed("shift+C") )
+        squad.scaling.C -= 0.01;
+
+    if ( keyboard.pressed("r") )
+        squad.shape.r += 0.01;
+    else if ( keyboard.pressed("shift+R") )
+        squad.shape.r -= 0.01;
+    if ( keyboard.pressed("s") )
+        squad.shape.s += 0.01;
+    else if ( keyboard.pressed("shift+S") )
+        squad.shape.s -= 0.01;
+    if ( keyboard.pressed("t") )
+        squad.shape.t += 0.01;
+    else if ( keyboard.pressed("shift+T") )
+        squad.shape.t -= 0.01;
+
+
+    for (i=0;i<squad.points.length;i++) { 
+        for (j=0;j<squad.points[i].length;j++) { 
+            temp_point = superquadric(squad.points[i][j].u,squad.points[i][j].v,
+                squad.scaling.A,squad.scaling.B,squad.scaling.C,
+                squad.shape.r,squad.shape.s,squad.shape.t);
+            squad.points[i][j].x = temp_point.x;
+            squad.points[i][j].y = temp_point.y;
+            squad.points[i][j].z = temp_point.z;
+            squad.points[i][j].mesh.position.x = squad.points[i][j].x;
+            squad.points[i][j].mesh.position.y = squad.points[i][j].y;
+            squad.points[i][j].mesh.position.z = squad.points[i][j].z;
+        }
+    }
+
+    // threejs rendering update
+    renderer.render( scene, camera );
+
+}
+
+</script>
+</body>
+</html>
+

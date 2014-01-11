@@ -1,0 +1,16 @@
+
+super quick superquadric
+Implementation of Barr's superquadric surface point visualization
+in HTML5/JavaScript and threejs
+
+@author odestcj / https://github.com/odestcj
+
+Change view by click-and-drag mouse
+
+Increase shape parameters with r,s,t keys;
+Decrease shape parameters with R,S,T
+
+Increase scaling parameters with a,b,c keys;
+Decrease scaling parameters with A,B,C
+
+Still need better lighting and tesselation of points into a mesh
