@@ -57,24 +57,20 @@ function init() {
     camera.position.y = 1;
     camera.position.z = 4;
 
-    var light1 = new THREE.PointLight( 0xffffff, 0.3, 1000 ); 
-    light1.position.set( 50, 50, 50 ); 
+    // create two lights and add them to the scene
+    var light1 = new THREE.PointLight( 0xffffff, 0.5, 1000, 1 ); 
+    light1.position.set( 10, 10, 50 ); 
     scene.add( light1 );
 
-    var light2 = new THREE.PointLight( 0xffffff, 0.3, 1000 ); 
-    light2.position.set( 50, 50, -50 ); 
+    var light2 = new THREE.PointLight( 0xffffff, 0.5, 1000, 1 ); 
+    light2.position.set( -10, -10, -50 ); 
     scene.add( light2 );
-
-    var light3 = new THREE.PointLight( 0xffffff, 0.3, 1000 ); 
-    light3.position.set( -50, 50, -50 ); 
-    scene.add( light3 );
-
-    var light4 = new THREE.PointLight( 0xffffff, 0.3, 1000 ); 
-    light4.position.set( -50, 50, 50 ); 
-    scene.add( light4 );
 
     // instantiate threejs renderer and its dimensions
     renderer = new THREE.WebGLRenderer();
+    //renderer.setClearColor(0x00234c,1); // blue
+    //renderer.setClearColor(0x001126,1); // blue
+    renderer.setClearColor(0x003472,1); // blue
     renderer.setSize( window.innerWidth, window.innerHeight );
 
     // attach threejs renderer to DOM
@@ -84,47 +80,84 @@ function init() {
     camera_controls = new THREE.OrbitControls( camera );
     camera_controls.addEventListener( 'change', renderer );
 
-    // instantiate threejs keyboard controls, for continuous interactive controls
+    // instantiate threejs keyboard controls for continuous interactive controls
     keyboard = new THREEx.KeyboardState();
 
-            
-    temp_geom = new THREE.CubeGeometry(0.1, 0.1, 0.1);
-    temp_material = new THREE.MeshLambertMaterial( {color: 0xff0000} );
+    // increment for shape parameters
+    parameter_increment = 0.05;
+
+    // create threejs geometry and material
+    temp_geom = new THREE.Geometry();
+    //temp_material = new THREE.MeshLambertMaterial( {color: 0xffc90b} );
+    temp_material = new THREE.MeshPhongMaterial( {color: 0xffc90b} );
+
+    // create object for superquadric shape
     squad = [];
+
+    // specify superquadric scaling and exponent parameters
     squad.scaling = {A:1, B:1, C:1};
-    //squad.shape = {r:2, s:2, t:2};  // start as sphere
-    //squad.shape = {r:10, s:10, t:10};  // start as rounded cube
-    squad.shape = {r:0.6, s:0.6, t:0.6};  // my favorite
+    //squad.shape = {r:2, s:2, t:2};  // start as ellipse
+    squad.shape = {r:10, s:10, t:10};  // start as rounded cuboid
+    //squad.shape = {r:0.6, s:0.6, t:0.6};  // my favorite
+    //squad.shape = {r:50, s:50, t:50};  // start as nearly cornered cuboid
+
+    // generate vertices for threejs geometry by sampling points from superquadric
     squad.points = [];
-    for (sv=-Math.PI/2,i=0;sv<=Math.PI/2;sv+=Math.PI/25,i++) { 
+    for (sv=-Math.PI,i=0;sv<=Math.PI;sv+=Math.PI/100,i++) { 
         squad.points[i] = []; 
-        for (su=-Math.PI,j=0;su<=Math.PI;su+=Math.PI/50,j++) { 
+        for (su=-Math.PI,j=0;su<=Math.PI;su+=Math.PI/100,j++) { 
             squad.points[i][j] = {v:sv, u:su}; 
             temp_point = superquadric(su,sv,
                 squad.scaling.A,squad.scaling.B,squad.scaling.C,
                 squad.shape.r,squad.shape.s,squad.shape.t);
-            squad.points[i][j].x = temp_point.x;
-            squad.points[i][j].y = temp_point.y;
-            squad.points[i][j].z = temp_point.z;
-            squad.points[i][j].mesh = new THREE.Mesh(temp_geom, temp_material);
-            scene.add(squad.points[i][j].mesh);
-            squad.points[i][j].mesh.position.x = squad.points[i][j].x;
-            squad.points[i][j].mesh.position.y = squad.points[i][j].y;
-            squad.points[i][j].mesh.position.z = squad.points[i][j].z;
+            squad.points[i][j].vertex = new THREE.Vector3(temp_point.x,temp_point.y,temp_point.z);
+            squad.points[i][j].id = temp_geom.vertices.length;
+            temp_geom.vertices.push(squad.points[i][j].vertex);
         }
     }
 
-textbar = document.createElement('div');
-textbar.style.position = 'absolute';
-//textbar.style.zIndex = 1;    // if you still don't see the label, try uncommenting this
-textbar.style.width = window.width-10;
-textbar.style.height = 20;
-textbar.style.backgroundColor = "black";
-textbar.style.color = "#00ff00";
-textbar.innerHTML = "hi there!";
-textbar.style.top = 10 + 'px';
-textbar.style.left = 10 + 'px';
-document.body.appendChild(textbar);
+    // generate faces for geometry by linking adjacent points into triangles
+    for (i=1;i<squad.points.length;i++) {
+        for (j=1;j<squad.points[i].length;j++) {
+            temp_geom.faces.push(new THREE.Face3(squad.points[i][j].id,squad.points[i-1][j].id,squad.points[i-1][j-1].id));
+            temp_geom.faces.push(new THREE.Face3(squad.points[i][j].id,squad.points[i-1][j-1].id,squad.points[i][j-1].id));
+        } 
+        temp_geom.faces.push(new THREE.Face3(squad.points[i][0].id,squad.points[i-1][0].id,squad.points[i-1][squad.points[i].length-1].id));
+        temp_geom.faces.push(new THREE.Face3(squad.points[i][0].id,squad.points[i-1][squad.points[i].length-1].id,squad.points[i][squad.points[i].length-1].id));
+    } 
+    for (j=1;j<squad.points[0].length;j++) {
+        temp_geom.faces.push(new THREE.Face3(squad.points[0][j].id,squad.points[squad.points.length-1][j].id,squad.points[squad.points.length-1][j-1].id));
+        temp_geom.faces.push(new THREE.Face3(squad.points[0][j].id,squad.points[squad.points.length-1][j-1].id,squad.points[0][j-1].id));
+    } 
+    temp_geom.faces.push(new THREE.Face3(
+        squad.points[0][0].id,
+        squad.points[squad.points.length-1][0].id,
+        squad.points[squad.points.length-1][squad.points[0].length-1].id));
+    temp_geom.faces.push(new THREE.Face3(
+        squad.points[0][0].id,
+        squad.points[squad.points.length-1][squad.points[0].length-1].id,
+        squad.points[0][squad.points[0].length-1].id));
+
+    // request threejs compute normals
+    temp_geom.computeFaceNormals();
+    temp_geom.computeVertexNormals();
+   
+    // add threejs mesh of shape from computed geometry and specified material
+    squad_mesh = new THREE.Mesh(temp_geom, temp_material);
+    scene.add(squad_mesh);
+            
+    // create a textbar to display current shape parameters
+    textbar = document.createElement('div');
+    textbar.style.position = 'absolute';
+    //textbar.style.zIndex = 1;    // if you still don't see the label, try uncommenting this
+    textbar.style.width = window.width-10;
+    textbar.style.height = 20;
+    //textbar.style.backgroundColor = "black";
+    textbar.style.color = "#ffffff";
+    textbar.innerHTML = "hi there!";
+    textbar.style.top = 10 + 'px';
+    textbar.style.left = 10 + 'px';
+    document.body.appendChild(textbar);
 
 }
 
@@ -184,54 +217,75 @@ function animate() {
     // http://learningwebgl.com/blog/?p=3189
     requestAnimationFrame( animate );
 
+    // update shape parameters in textbar 
     textbar.innerHTML = 
-        " A = " + squad.scaling.A.toFixed(2) + 
-        " B = " + squad.scaling.B.toFixed(2) + 
-        " C = " + squad.scaling.C.toFixed(2) + 
+        " Increase shape parameters with corresponding key; decrease using shift+key<br>" + 
+        " a = " + squad.scaling.A.toFixed(2) + 
+        " b = " + squad.scaling.B.toFixed(2) + 
+        " c = " + squad.scaling.C.toFixed(2) + 
         " r = " + squad.shape.r.toFixed(2) + 
         " s = " + squad.shape.s.toFixed(2) + 
-        " t = " + squad.shape.t.toFixed(2) ; 
+        " t = " + squad.shape.t.toFixed(2) + 
+        " (i)ncrement = " + parameter_increment.toFixed(2) + 
+        " <br> or try a preset: e(l)lipse, r(o)unded cuboid, cor(n)ered cuboid, s(p)erry, (u)nit scaling";
 
+    // update shape and increment parameters based on user input
+    if ( keyboard.pressed("shift+I") )
+        parameter_increment -= 0.01;
+    else if ( keyboard.pressed("i") )
+        parameter_increment += 0.01;
     if ( keyboard.pressed("shift+A") )
-        squad.scaling.A -= 0.01;
+        squad.scaling.A -= parameter_increment;
     else if ( keyboard.pressed("a") )
-        squad.scaling.A += 0.01;
+        squad.scaling.A += parameter_increment;
     if ( keyboard.pressed("shift+B") )
-        squad.scaling.B -= 0.01;
+        squad.scaling.B -= parameter_increment;
     else if ( keyboard.pressed("b") )
-        squad.scaling.B += 0.01;
+        squad.scaling.B += parameter_increment;
     if ( keyboard.pressed("shift+C") )
-        squad.scaling.C -= 0.01;
+        squad.scaling.C -= parameter_increment;
     else if ( keyboard.pressed("c") )
-        squad.scaling.C += 0.01;
+        squad.scaling.C += parameter_increment;
 
     if ( keyboard.pressed("shift+R") )
-        squad.shape.r -= 0.01;
+        squad.shape.r -= parameter_increment;
     else if ( keyboard.pressed("r") )
-        squad.shape.r += 0.01;
+        squad.shape.r += parameter_increment;
     if ( keyboard.pressed("shift+S") )
-        squad.shape.s -= 0.01;
+        squad.shape.s -= parameter_increment;
     else if ( keyboard.pressed("s") )
-        squad.shape.s += 0.01;
+        squad.shape.s += parameter_increment;
     if ( keyboard.pressed("shift+T") )
-        squad.shape.t -= 0.01;
+        squad.shape.t -= parameter_increment;
     else if ( keyboard.pressed("t") )
-        squad.shape.t += 0.01;
+        squad.shape.t += parameter_increment;
 
+    if ( keyboard.pressed("l") )
+        squad.shape = {r:2, s:2, t:2};  // ellipse
+    if ( keyboard.pressed("o") )
+        squad.shape = {r:10, s:10, t:10};  // rounded cuboid
+    if ( keyboard.pressed("p") )
+        squad.shape = {r:0.6, s:0.6, t:0.6};  // "sperry"
+    if ( keyboard.pressed("n") )
+        squad.shape = {r:40, s:40, t:40};  //  nearly cornered cuboid
+    if ( keyboard.pressed("u") )
+        squad.scaling = {A:1, B:1, C:1};
 
+    // update vertices of geometry based on current superquadric parameters
     for (i=0;i<squad.points.length;i++) { 
         for (j=0;j<squad.points[i].length;j++) { 
             temp_point = superquadric(squad.points[i][j].u,squad.points[i][j].v,
                 squad.scaling.A,squad.scaling.B,squad.scaling.C,
                 squad.shape.r,squad.shape.s,squad.shape.t);
-            squad.points[i][j].x = temp_point.x;
-            squad.points[i][j].y = temp_point.y;
-            squad.points[i][j].z = temp_point.z;
-            squad.points[i][j].mesh.position.x = squad.points[i][j].x;
-            squad.points[i][j].mesh.position.y = squad.points[i][j].y;
-            squad.points[i][j].mesh.position.z = squad.points[i][j].z;
+            squad.points[i][j].vertex.x = temp_point.x;
+            squad.points[i][j].vertex.y = temp_point.y;
+            squad.points[i][j].vertex.z = temp_point.z;
         }
     }
+
+    // request threejs update vertices and normals for rendering
+    squad_mesh.geometry.verticesNeedUpdate = true;
+    squad_mesh.geometry.normalsNeedUpdate = true;
 
     // threejs rendering update
     renderer.render( scene, camera );
